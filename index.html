@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+
+  <title>WebTorrent Player</title>
+
+  <script src="https://cdn.jsdelivr.net/webtorrent/latest/webtorrent.min.js"></script>
+
+  <style>
+  body {
+    color:#fff;
+    background: #16171b;
+    font-size:14px;
+    font-family: Arial;
+    padding:0;
+    margin:0;
+  }
+
+  #wtplayer {
+    background: white;
+    display: flex;
+    flex-direction: row;
+    max-width: 700px;
+    margin: 30px auto;
+    color: #333;
+  }
+
+  #wtplayer .wtp-playlist {
+  }
+
+  #wtplayer .wtp-playlist li {
+    text-align: left;
+    padding: 6px;
+    cursor: pointer;
+  }
+
+  #wtplayer .wtp-playlist li:hover {
+    background: #666;
+    color: white;
+  }
+
+  #wtplayer .wtp-controls figure {
+    margin: 0;
+  }
+
+  #wtplayer .wtp-controls figure img {
+    width: 350px;
+  }
+
+  </style>
+
+</head>
+<body>
+
+  <div id="wtplayer">
+    <div class="wtp-controls">
+      <figure>
+        <img class="wtp-folder" src="" alt="">
+      </figure>
+      <div class="wtp-media"></div>
+    </div>
+    <ul class="wtp-playlist">
+      <li>
+        <span class="wtp-song-title">Convoque seu budda</span>
+        <span class="wtp-song-artist">Criolo</span>
+      </li>
+    </ul>
+  </div>
+
+  <pre class="log" style="text-align:left; padding:40px">
+    <p>Log:</p>
+  </pre>
+
+  <script>
+  var torrent = "magnet:?xt=urn:btih:bab2b83a21c7fd59e0b469ffebb8e2a0d45b0fdf&dn=Criolo+e+Emicida+(2013+-+Ao+Vivo)&tr=udp%3A%2F%2Fexodus.desync.com%3A6969&tr=udp%3A%2F%2Fopen.demonii.com%3A1337&tr=udp%3A%2F%2Ftracker.coppersurfer.tk%3A6969&tr=udp%3A%2F%2Ftracker.leechers-paradise.org%3A6969&tr=udp%3A%2F%2Fzer0day.ch%3A1337&tr=wss%3A%2F%2Ftracker.btorrent.xyz&tr=wss%3A%2F%2Ftracker.fastcast.nz&tr=wss%3A%2F%2Ftracker.openwebtorrent.com"
+  var client = new WebTorrent()
+  var tfiles = {}
+
+  var wtplayer = {
+
+    current: -1,
+    files: [],
+
+    load(torrent) {
+      client.add(torrent, wtplayer.onTorrent)
+    },
+
+    play(index) {
+      file = tfiles[index]
+      document.querySelector('.wtp-media').innerHTML = '';
+      file.appendTo('.wtp-media')
+    },
+
+    onTorrent(torrent) {
+      log('Got torrent metadata!')
+      log(
+        'Torrent info hash: ' + torrent.infoHash + ' ' +
+        '<a href="' + torrent.magnetURI + '" target="_blank">[Magnet URI]</a> ' +
+        '<a href="' + torrent.torrentFileBlobURL + '" target="_blank" download="' + torrent.name + '.torrent">[Download .torrent]</a>'
+      )
+
+      var $playlist = document.querySelector('.wtp-playlist')
+      $playlist.innerHTML = ''
+
+      // Print out progress every 5 seconds
+      var interval = setInterval(function () {
+        log('Progress: ' + (torrent.progress * 100).toFixed(1) + '%')
+      }, 5000)
+
+      torrent.on('done', function () {
+        log('Progress: 100%')
+        clearInterval(interval)
+      })
+
+      tfiles = torrent.files
+      wtplayer.files = torrent.files
+
+      console.log('tfiles', tfiles);
+
+      var folderLoaded = false
+
+      // Render all files into to the page
+      torrent.files.forEach(function (file, i) {
+
+        console.log('file', file)
+
+        // log('(Blob URLs only work if the file is loaded from a server. "http//localhost" works. "file://" does not.)')
+
+        file.getBlobURL(function (err, url) {
+          if (err) return log(err.message)
+          // log('File done.')
+          // log('<a href="' + url + '">Download full file: ' + file.name + '</a>')
+          // log('<div onclick="playTorrent(' + i + ')">Download full file: ' + file.name + '</div>')
+          console.log(file)
+
+          if (!folderLoaded && /(folder|capa|frente).*(png|jpg|jpeg|gif|tiff|bmp)$/i.test(file.name)) {
+            file.appendTo('.wtp-controls figure')
+            folderLoaded = true
+          }
+
+          $playlist.innerHTML += `
+            <li onclick="wtplayer.play(${i})">
+              <span class="wtp-song-title">${file.name}</span>
+              <span class="wtp-song-artist"></span>
+            </li>
+          `
+        })
+      })
+    }
+
+  }
+
+  client.on('error', function (err) {
+    console.error('ERROR: ' + err.message)
+  })
+
+  setTimeout(function () {
+    client.add(torrent, onTorrent)
+    log(torrent);
+  }, 1000)
+
+  function log (str) {
+    console.log(str);
+    var p = document.createElement('p')
+    p.innerHTML = str
+    document.querySelector('.log').appendChild(p)
+  }
+  </script>
+</body>
+</html>
